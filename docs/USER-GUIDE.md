@@ -61,7 +61,7 @@ brew install scrcpy
 
 ```bash
 # Clone or download the repository
-git clone <your-repo-url>
+git clone https://github.com/YOUR_USERNAME/roid-mirror
 cd roid-mirror
 
 # Scripts are ready to use (wrapper scripts in root, actual code in src/)
