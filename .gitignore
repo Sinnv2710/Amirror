@@ -1,0 +1,13 @@
+# Logs
+logs/
+*.log
+
+# PID files
+*.pid
+.scrcpy.pid
+
+# macOS
+.DS_Store
+
+# Temporary files
+*.tmp

@@ -1,0 +1,355 @@
+#!/usr/bin/env bash
+
+################################################################################
+# Android Mirror - Main Entry Point
+# Description: Single command-line interface for all Android mirroring operations
+# Usage: ./roid-mirror [command] [options]
+################################################################################
+
+set -eo pipefail
+
+# Configuration
+readonly SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+readonly SRC_DIR="${SCRIPT_DIR}/src"
+readonly VERSION="2.0.0"
+
+# Color codes
+readonly RED='\033[0;31m'
+readonly GREEN='\033[0;32m'
+readonly YELLOW='\033[1;33m'
+readonly BLUE='\033[0;34m'
+readonly CYAN='\033[0;36m'
+readonly BOLD='\033[1m'
+readonly NC='\033[0m'
+
+################################################################################
+# Help Functions
+################################################################################
+
+show_version() {
+    echo "Android Mirror v${VERSION}"
+    echo "A professional Android device screen mirroring tool for macOS"
+}
+
+show_help() {
+    cat << 'EOF'
+Android Mirror v2.0.0
+A professional Android device screen mirroring tool for macOS
+
+USAGE:
+    roid-mirror [COMMAND] [OPTIONS]
+
+COMMANDS:
+    start              Start screen mirroring
+    mirror             Alias for 'start'
+    install            Install USB auto-detection monitor
+    uninstall          Uninstall USB auto-detection monitor
+    status             Check installation and device status
+    list               List all connected Android devices
+    devices            Alias for 'list'
+    logs               Show recent logs
+    version            Show version information
+    help               Show this help message
+
+OPTIONS:
+    -s, --serial <SERIAL>   Connect to specific device by serial number
+    -h, --help              Show help message
+    -v, --version           Show version information
+    --debug                 Enable debug logging
+
+EXAMPLES:
+    # Start mirroring (interactive device selection)
+    roid-mirror start
+
+    # Start mirroring with specific device
+    roid-mirror start -s ABC123456
+
+    # List all connected devices
+    roid-mirror list
+
+    # Install auto-detection
+    roid-mirror install
+
+    # Check status
+    roid-mirror status
+
+    # View logs
+    roid-mirror logs
+
+DOCUMENTATION:
+    See README.md and docs/ folder for detailed documentation.
+
+MORE INFO:
+    Repository: https://github.com/your-repo/roid-mirror
+    Issues: https://github.com/your-repo/roid-mirror/issues
+EOF
+}
+
+################################################################################
+# Utility Functions
+################################################################################
+
+check_dependencies() {
+    local missing=()
+    
+    if ! command -v adb &> /dev/null; then
+        missing+=("adb")
+    fi
+    
+    if ! command -v scrcpy &> /dev/null; then
+        missing+=("scrcpy")
+    fi
+    
+    if [[ ${#missing[@]} -gt 0 ]]; then
+        echo -e "${RED}✗ Missing dependencies: ${missing[*]}${NC}"
+        echo -e "${YELLOW}Install with: brew install scrcpy${NC}"
+        return 1
+    fi
+    
+    return 0
+}
+
+list_devices() {
+    echo -e "${CYAN}${BOLD}Scanning for Android devices...${NC}\n"
+    
+    if ! check_dependencies; then
+        exit 1
+    fi
+    
+    local devices
+    devices=$(adb devices -l 2>/dev/null | tail -n +2 | grep "device$" || true)
+    
+    if [[ -z "$devices" ]]; then
+        echo -e "${YELLOW}No devices found${NC}"
+        echo ""
+        echo "Make sure:"
+        echo "  1. Device is connected via USB"
+        echo "  2. USB debugging is enabled"
+        echo "  3. Device is authorized on this computer"
+        return 1
+    fi
+    
+    echo -e "${GREEN}Connected devices:${NC}\n"
+    
+    local counter=1
+    while IFS= read -r line; do
+        local serial=$(echo "$line" | awk '{print $1}')
+        local model=$(adb -s "$serial" shell getprop ro.product.model 2>/dev/null | tr -d '\r' || echo "Unknown")
+        local android=$(adb -s "$serial" shell getprop ro.build.version.release 2>/dev/null | tr -d '\r' || echo "?")
+        
+        echo -e "  ${BOLD}[$counter]${NC} $serial"
+        echo -e "      Model: $model"
+        echo -e "      Android: $android"
+        echo ""
+        
+        ((counter++))
+    done <<< "$devices"
+    
+    return 0
+}
+
+show_status() {
+    echo -e "${CYAN}${BOLD}System Status${NC}\n"
+    
+    # Check dependencies
+    echo -e "${BOLD}Dependencies:${NC}"
+    if command -v adb &> /dev/null; then
+        echo -e "  ${GREEN}✓${NC} adb: $(command -v adb)"
+    else
+        echo -e "  ${RED}✗${NC} adb: not found"
+    fi
+    
+    if command -v scrcpy &> /dev/null; then
+        echo -e "  ${GREEN}✓${NC} scrcpy: $(command -v scrcpy)"
+    else
+        echo -e "  ${RED}✗${NC} scrcpy: not found"
+    fi
+    
+    echo ""
+    
+    # Check auto-monitor status
+    echo -e "${BOLD}Auto-Monitor:${NC}"
+    local plist="${HOME}/Library/LaunchAgents/com.user.android.usb-monitor.plist"
+    if [[ -f "$plist" ]]; then
+        if launchctl list | grep -q "com.user.android.usb-monitor"; then
+            echo -e "  ${GREEN}✓${NC} Installed and running"
+        else
+            echo -e "  ${YELLOW}⚠${NC} Installed but not running"
+        fi
+    else
+        echo -e "  ${YELLOW}○${NC} Not installed"
+    fi
+    
+    echo ""
+    
+    # Check connected devices
+    echo -e "${BOLD}Connected Devices:${NC}"
+    local device_count
+    device_count=$(adb devices 2>/dev/null | tail -n +2 | grep -c "device$" || echo "0")
+    device_count=$(echo "$device_count" | tr -d '\n\r' | xargs)
+    if [[ "$device_count" -gt 0 ]]; then
+        echo -e "  ${GREEN}✓${NC} $device_count device(s) connected"
+    else
+        echo -e "  ${YELLOW}○${NC} No devices connected"
+    fi
+    
+    echo ""
+    
+    # Check logs
+    echo -e "${BOLD}Recent Activity:${NC}"
+    local log_count=$(ls -1 logs/*.log 2>/dev/null | wc -l | xargs || echo "0")
+    echo -e "  Log files: $log_count"
+    if [[ "$log_count" -gt 0 ]]; then
+        local latest=$(ls -t logs/*.log 2>/dev/null | head -1)
+        echo -e "  Latest: ${latest##*/}"
+    fi
+}
+
+show_logs() {
+    local log_dir="${SCRIPT_DIR}/logs"
+    
+    if [[ ! -d "$log_dir" ]] || [[ -z "$(ls -A "$log_dir" 2>/dev/null)" ]]; then
+        echo -e "${YELLOW}No logs found${NC}"
+        return 0
+    fi
+    
+    echo -e "${CYAN}${BOLD}Recent Logs${NC}\n"
+    
+    local latest_main=$(ls -t "$log_dir"/android-mirror-*.log 2>/dev/null | head -1)
+    local latest_error=$(ls -t "$log_dir"/error-*.log 2>/dev/null | head -1)
+    
+    if [[ -n "$latest_main" ]]; then
+        echo -e "${BOLD}Latest main log:${NC} ${latest_main##*/}"
+        echo -e "${BLUE}Last 20 lines:${NC}\n"
+        tail -20 "$latest_main"
+        echo ""
+    fi
+    
+    if [[ -n "$latest_error" ]] && [[ -s "$latest_error" ]]; then
+        echo -e "${BOLD}Latest error log:${NC} ${latest_error##*/}"
+        echo -e "${RED}Last 10 errors:${NC}\n"
+        tail -10 "$latest_error"
+    fi
+}
+
+################################################################################
+# Command Handlers
+################################################################################
+
+cmd_start() {
+    local device_serial=""
+    
+    # Parse options
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            -s|--serial)
+                device_serial="$2"
+                shift 2
+                ;;
+            *)
+                echo -e "${RED}Unknown option: $1${NC}"
+                echo "Use '$(basename "$0") help' for usage"
+                exit 1
+                ;;
+        esac
+    done
+    
+    # Check dependencies
+    if ! check_dependencies; then
+        exit 1
+    fi
+    
+    # Export device serial if specified
+    if [[ -n "$device_serial" ]]; then
+        export DEVICE_SERIAL="$device_serial"
+    fi
+    
+    # Run the main mirroring script
+    exec "${SRC_DIR}/android-mirror.sh"
+}
+
+cmd_install() {
+    exec "${SRC_DIR}/install-monitor.sh"
+}
+
+cmd_uninstall() {
+    exec "${SRC_DIR}/uninstall-monitor.sh"
+}
+
+################################################################################
+# Main Entry Point
+################################################################################
+
+main() {
+    # Parse global options first
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            -h|--help|help)
+                show_help
+                exit 0
+                ;;
+            -v|--version|version)
+                show_version
+                exit 0
+                ;;
+            --debug)
+                export DEBUG=1
+                shift
+                ;;
+            -*)
+                echo -e "${RED}Unknown option: $1${NC}"
+                echo "Use '$(basename "$0") help' for usage"
+                exit 1
+                ;;
+            *)
+                break
+                ;;
+        esac
+    done
+    
+    # Get command (default to help if no arguments)
+    if [[ $# -eq 0 ]]; then
+        show_help
+        exit 0
+    fi
+    
+    local command="$1"
+    shift
+    
+    # Route to appropriate handler
+    case "$command" in
+        start|mirror)
+            cmd_start "$@"
+            ;;
+        install)
+            cmd_install "$@"
+            ;;
+        uninstall)
+            cmd_uninstall "$@"
+            ;;
+        list|devices)
+            list_devices
+            ;;
+        status)
+            show_status
+            ;;
+        logs)
+            show_logs
+            ;;
+        help)
+            show_help
+            ;;
+        version)
+            show_version
+            ;;
+        *)
+            echo -e "${RED}Unknown command: $command${NC}"
+            echo ""
+            echo "Use '$(basename "$0") help' for available commands"
+            exit 1
+            ;;
+    esac
+}
+
+# Run main function
+main "$@"
