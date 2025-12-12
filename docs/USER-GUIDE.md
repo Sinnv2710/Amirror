@@ -332,7 +332,7 @@ cat > ~/Library/LaunchAgents/com.user.android-mirror.plist << 'EOF'
     <string>com.user.android-mirror</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/path/to/android-mirror.sh</string>
+        <string>roid-mirror</string>
     </array>
     <key>RunAtLoad</key>
     <true/>
