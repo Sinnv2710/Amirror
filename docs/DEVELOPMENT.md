@@ -4,9 +4,9 @@
 
 ```
 roid-mirror/
-├── roid-mirror            # Main CLI entry point
+├── roid-mirror            # Main CLI entry point (user-facing CLI; delegates to src/android-mirror.sh and other scripts)
 ├── src/                   # Source scripts
-│   ├── android-mirror.sh  # Core mirroring logic
+│   ├── android-mirror.sh  # Core mirroring logic (invoked by roid-mirror; not intended for direct use)
 │   ├── usb-monitor.sh     # USB device detection
 │   ├── install-monitor.sh # Auto-monitor installer
 │   └── uninstall-monitor.sh
@@ -58,7 +58,7 @@ Tests cover:
 - Exit codes
 - Error messages
 
-See [test/README.md](../test/README.md) for details.
+Further test documentation will be added soon.
 
 ## Adding New Features
 

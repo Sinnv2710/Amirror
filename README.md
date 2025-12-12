@@ -76,6 +76,6 @@ MIT License - use freely for personal or commercial projects.
 
 ## Support
 
-- 📝 [Issues](https://github.com/YOUR_USERNAME/roid-mirror/issues) - Bug reports and feature requests
+- 📝 [Issues](https://github.com/roid-mirror/roid-mirror/issues) - Bug reports and feature requests
 - 📚 [scrcpy docs](https://github.com/Genymobile/scrcpy) - Underlying mirroring tool
 - 💬 Check `logs/` directory for detailed error information

@@ -82,7 +82,7 @@ cd roid-mirror
 Enable automatic device detection - a dialog appears when you plug in your Android device:
 
 ```bash
-./install-monitor.sh
+./roid-mirror install
 ```
 
 After installation, just plug in your device and click "Yes" when prompted!
@@ -92,7 +92,7 @@ After installation, just plug in your device and click "Yes" when prompted!
 ### Option 2: Manual Run
 
 ```bash
-./android-mirror.sh
+./roid-mirror start
 ```
 
 ### What Happens
@@ -260,7 +260,7 @@ Suggestions:
 
 ```bash
 # Make script executable
-chmod +x android-mirror.sh
+chmod +x roid-mirror
 
 # Check log directory permissions
 chmod -R 755 logs/
@@ -300,7 +300,7 @@ There is no better alternative with the same feature set and performance.
 While the script is designed to run in the foreground, you can run it in the background:
 
 ```bash
-nohup ./android-mirror.sh > /dev/null 2>&1 &
+nohup ./roid-mirror start > /dev/null 2>&1 &
 ```
 
 However, you won't be able to select devices interactively.
@@ -361,9 +361,10 @@ roid-mirror/
 ├── lib/                        # 📚 Libraries
 │   └── error-handler.sh       # Reusable error handling library
 ├── docs/                       # 📄 Documentation
-│   ├── README.md              # Documentation index
-│   ├── AUTO-CONNECT.md        # Auto-connect setup guide
-│   └── QUICKSTART.md          # Quick start guide
+│   ├── USER-GUIDE.md           # Documentation index (this file)
+│   ├── DEVELOPMENT.md          # Developer guide
+│   ├── AUTO-CONNECT.md         # Auto-connect setup guide
+│   └── QUICKSTART.md           # Quick start guide
 └── logs/                       # 📊 Logs (auto-generated)
     ├── android-mirror-*.log   # Main operation logs
     └── error-*.log            # Error-only logs
