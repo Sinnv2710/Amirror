@@ -25,10 +25,10 @@ Professional Android screen mirroring for macOS — like iPhone Mirroring, but f
 
 ```bash
 # Install
-curl -fsSL https://raw.githubusercontent.com/praparn/amirror-mac/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Sinnv2710/Amirror/main/install.sh | bash
 
 # Uninstall
-curl -fsSL https://raw.githubusercontent.com/praparn/amirror-mac/main/uninstall.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Sinnv2710/Amirror/main/uninstall.sh | bash
 ```
 
 This will:
