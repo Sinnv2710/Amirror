@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 ################################################################################
-# Android Screen Mirror Script - Enhanced Version
+# Amirror - Android Screen Mirroring Script
 # Description: Manages Android device screen mirroring with scrcpy
 # Requirements: adb, scrcpy (install via: brew install scrcpy)
 # Features: Comprehensive error handling, retry logic, timeouts, validation
@@ -10,9 +10,9 @@
 # Configuration
 readonly SCRIPT_NAME="$(basename "$0")"
 readonly SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-readonly PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+readonly PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 readonly LOG_DIR="${PROJECT_ROOT}/logs"
-readonly LOG_FILE="${LOG_DIR}/android-mirror-$(date +%Y%m%d_%H%M%S).log"
+readonly LOG_FILE="${LOG_DIR}/amirror-$(date +%Y%m%d_%H%M%S).log"
 readonly ERROR_LOG="${LOG_DIR}/error-$(date +%Y%m%d_%H%M%S).log"
 readonly PID_FILE="${SCRIPT_DIR}/.scrcpy.pid"
 
@@ -20,12 +20,29 @@ readonly PID_FILE="${SCRIPT_DIR}/.scrcpy.pid"
 mkdir -p "${LOG_DIR}"
 
 # Source error handling library
-if [[ ! -f "${PROJECT_ROOT}/lib/error-handler.sh" ]]; then
+if [[ ! -f "${PROJECT_ROOT}/src/lib/error-handler.sh" ]]; then
     echo "Error: error-handler.sh library not found"
     exit 1
 fi
 
-source "${PROJECT_ROOT}/lib/error-handler.sh"
+source "${PROJECT_ROOT}/src/lib/error-handler.sh"
+
+# Ensure critical paths are in PATH for homebrew installations
+# This fixes issues when script is called from contexts with minimal PATH
+# Include GNU coreutils bin directory for 'timeout' command
+export PATH="/opt/homebrew/opt/coreutils/libexec/gnubin:/opt/homebrew/bin:/usr/local/bin:${PATH}"
+
+# Find the actual adb binary location for use in subcommands
+# This ensures ADB works even when called through timeout/subshells
+ADB_BIN=""
+if command -v adb &>/dev/null; then
+    ADB_BIN=$(command -v adb)
+elif [[ -f "/opt/homebrew/bin/adb" ]]; then
+    ADB_BIN="/opt/homebrew/bin/adb"
+else
+    ADB_BIN="adb"
+fi
+export ADB_BIN
 
 # Initialize error handling
 init_error_handling
@@ -111,15 +128,16 @@ get_connected_devices() {
     
     local output
     local exit_code
+    local adb_cmd="${ADB_BIN:-adb}"
     
     # Execute adb devices with timeout and retry
-    if ! output=$(execute_with_timeout 10 "ADB device scan" adb devices -l); then
+    if ! output=$(execute_with_timeout 10 "ADB device scan" "$adb_cmd" devices -l); then
         exit_code=$?
         
         if [[ $exit_code -eq ${ERROR_CODES[TIMEOUT]} ]]; then
             show_error "${ERROR_CODES[TIMEOUT]}" \
                 "ADB device scan timed out." \
-                "1. Try unplugging and replugging your device\n2. Restart ADB server: adb kill-server && adb start-server\n3. Check USB cable connection"
+                "1. Try unplugging and replugging your device\n2. Restart ADB server: $adb_cmd kill-server && $adb_cmd start-server\n3. Check USB cable connection"
             throw "${ERROR_CODES[TIMEOUT]}"
         fi
         
@@ -127,11 +145,11 @@ get_connected_devices() {
         log_warn "ADB scan failed, attempting to restart ADB server"
         show_warning "Device scan failed, restarting ADB server..."
         
-        if execute_safe "Kill ADB server" adb kill-server && \
-           execute_safe "Start ADB server" adb start-server; then
+        if execute_safe "Kill ADB server" "$adb_cmd" kill-server && \
+           execute_safe "Start ADB server" "$adb_cmd" start-server; then
             
             sleep 2
-            if ! output=$(execute_with_timeout 10 "ADB device scan (retry)" adb devices -l); then
+            if ! output=$(execute_with_timeout 10 "ADB device scan (retry)" "$adb_cmd" devices -l); then
                 show_error "${ERROR_CODES[ADB_ERROR]}" \
                     "Failed to communicate with ADB after restart." \
                     "1. Ensure ADB is properly installed: brew install scrcpy\n2. Try unplugging all devices and restart\n3. Reboot your Mac if problem persists"
@@ -177,13 +195,14 @@ get_device_info() {
     local serial=$1
     local property=$2
     local timeout=${3:-5}
+    local adb_cmd="${ADB_BIN:-adb}"
     
     log_debug "Getting device property: $property for $serial"
     
     local output
     if output=$(execute_with_timeout "$timeout" \
         "Get device $property" \
-        adb -s "$serial" shell getprop "$property" 2>/dev/null); then
+        "$adb_cmd" -s "$serial" shell getprop "$property" 2>/dev/null); then
         # Remove carriage returns and newlines
         echo "${output//[$'\r\n']}"
         return 0
@@ -239,8 +258,9 @@ select_device() {
     if [[ "${device_count}" -eq 1 ]]; then
         local device_id="${device_array[0]}"
         log_info "Only one device found, auto-selecting: ${device_id}"
-        echo ""
-        echo -e "${GREEN}✓ Auto-selected device: ${device_id}${NC}"
+        # Send display output to stderr, only device ID to stdout
+        echo "" >&2
+        echo -e "${GREEN}✓ Auto-selected device: ${device_id}${NC}" >&2
         echo "${device_id}"
         return 0
     fi
@@ -308,8 +328,9 @@ verify_device_connection() {
     
     # Check device state with retry
     local state
+    local adb_cmd="${ADB_BIN:-adb}"
     if ! state=$(retry_with_backoff 3 1 "Get device state" \
-        adb -s "$device_id" get-state 2>/dev/null); then
+        "$adb_cmd" -s "$device_id" get-state 2>/dev/null); then
         
         log_error "Failed to get device state for $device_id after retries"
         show_error "${ERROR_CODES[DEVICE_DISCONNECTED]}" \
@@ -331,7 +352,7 @@ verify_device_connection() {
     
     # Additional connectivity test with timeout
     if ! execute_with_timeout 5 "Device shell test" \
-        adb -s "$device_id" shell echo "connection_test" &>/dev/null; then
+        "$adb_cmd" -s "$device_id" shell echo "connection_test" &>/dev/null; then
         
         log_error "Device shell test failed for $device_id"
         show_error "${ERROR_CODES[DEVICE_DISCONNECTED]}" \

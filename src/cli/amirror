@@ -1,16 +1,18 @@
 #!/usr/bin/env bash
 
 ################################################################################
-# Android Mirror - Main Entry Point
+# Amirror - Main Entry Point
 # Description: Single command-line interface for all Android mirroring operations
-# Usage: ./roid-mirror [command] [options]
+# Usage: ./amirror [command] [options]
 ################################################################################
 
 set -eo pipefail
 
 # Configuration
 readonly SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-readonly SRC_DIR="${SCRIPT_DIR}/src"
+readonly PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+readonly SRC_DIR="${PROJECT_ROOT}/src"
+readonly CLI_DIR="${SRC_DIR}/cli"
 readonly VERSION="2.0.0"
 
 # Color codes
@@ -27,26 +29,25 @@ readonly NC='\033[0m'
 ################################################################################
 
 show_version() {
-    echo "Android Mirror v${VERSION}"
+    echo "Amirror v${VERSION}"
     echo "A professional Android device screen mirroring tool for macOS"
 }
 
 show_help() {
     cat << 'EOF'
-Android Mirror v2.0.0
+Amirror v2.0.0
 A professional Android device screen mirroring tool for macOS
 
 USAGE:
-    roid-mirror [COMMAND] [OPTIONS]
+    amirror [COMMAND] [OPTIONS]
 
 COMMANDS:
+    doctor             Check system and install missing dependencies
     start              Start screen mirroring
     mirror             Alias for 'start'
-    install            Install USB auto-detection monitor
-    uninstall          Uninstall USB auto-detection monitor
-    status             Check installation and device status
     list               List all connected Android devices
     devices            Alias for 'list'
+    status             Check installation and device status
     logs               Show recent logs
     version            Show version information
     help               Show this help message
@@ -58,30 +59,33 @@ OPTIONS:
     --debug                 Enable debug logging
 
 EXAMPLES:
+    # Check system and dependencies
+    amirror doctor
+
+    # Check and auto-fix missing dependencies
+    amirror doctor --fix
+
     # Start mirroring (interactive device selection)
-    roid-mirror start
+    amirror start
 
     # Start mirroring with specific device
-    roid-mirror start -s ABC123456
+    amirror start -s ABC123456
 
     # List all connected devices
-    roid-mirror list
-
-    # Install auto-detection
-    roid-mirror install
+    amirror list
 
     # Check status
-    roid-mirror status
+    amirror status
 
     # View logs
-    roid-mirror logs
+    amirror logs
 
 DOCUMENTATION:
     See README.md and docs/ folder for detailed documentation.
 
 MORE INFO:
-    Repository: https://github.com/your-repo/roid-mirror
-    Issues: https://github.com/your-repo/roid-mirror/issues
+    Repository: https://github.com/your-repo/amirror
+    Issues: https://github.com/your-repo/amirror/issues
 EOF
 }
 
@@ -117,7 +121,7 @@ list_devices() {
     fi
     
     local devices
-    devices=$(adb devices -l 2>/dev/null | tail -n +2 | grep "device$" || true)
+    devices=$(adb devices -l 2>/dev/null | tail -n +2 | grep "device" || true)
     
     if [[ -z "$devices" ]]; then
         echo -e "${YELLOW}No devices found${NC}"
@@ -167,21 +171,6 @@ show_status() {
     
     echo ""
     
-    # Check auto-monitor status
-    echo -e "${BOLD}Auto-Monitor:${NC}"
-    local plist="${HOME}/Library/LaunchAgents/com.user.android.usb-monitor.plist"
-    if [[ -f "$plist" ]]; then
-        if launchctl list | grep -q "com.user.android.usb-monitor"; then
-            echo -e "  ${GREEN}✓${NC} Installed and running"
-        else
-            echo -e "  ${YELLOW}⚠${NC} Installed but not running"
-        fi
-    else
-        echo -e "  ${YELLOW}○${NC} Not installed"
-    fi
-    
-    echo ""
-    
     # Check connected devices
     echo -e "${BOLD}Connected Devices:${NC}"
     local device_count
@@ -197,12 +186,18 @@ show_status() {
     
     # Check logs
     echo -e "${BOLD}Recent Activity:${NC}"
-    local log_count=$(ls -1 logs/*.log 2>/dev/null | wc -l | xargs || echo "0")
+    local log_count=0
+    if [[ -d "logs" ]] && compgen -G "logs/*.log" > /dev/null 2>&1; then
+        log_count=$(find logs -maxdepth 1 -name "*.log" -type f 2>/dev/null | wc -l | tr -d '[:space:]')
+    fi
     echo -e "  Log files: $log_count"
     if [[ "$log_count" -gt 0 ]]; then
-        local latest=$(ls -t logs/*.log 2>/dev/null | head -1)
+        local latest
+        latest=$(ls -t logs/*.log 2>/dev/null | head -1)
         echo -e "  Latest: ${latest##*/}"
     fi
+    
+    return 0
 }
 
 show_logs() {
@@ -215,7 +210,7 @@ show_logs() {
     
     echo -e "${CYAN}${BOLD}Recent Logs${NC}\n"
     
-    local latest_main=$(ls -t "$log_dir"/android-mirror-*.log 2>/dev/null | head -1)
+    local latest_main=$(ls -t "$log_dir"/amirror-*.log 2>/dev/null | head -1)
     local latest_error=$(ls -t "$log_dir"/error-*.log 2>/dev/null | head -1)
     
     if [[ -n "$latest_main" ]]; then
@@ -264,16 +259,25 @@ cmd_start() {
         export DEVICE_SERIAL="$device_serial"
     fi
     
+    # Ensure homebrew binaries are in PATH before exec
+    if [[ ":$PATH:" != *":/opt/homebrew/bin:"* ]]; then
+        export PATH="/opt/homebrew/opt/coreutils/libexec/gnubin:/opt/homebrew/bin:/usr/local/bin:${PATH}"
+    fi
+    
     # Run the main mirroring script
-    exec "${SRC_DIR}/android-mirror.sh"
+    exec "${CLI_DIR}/amirror.sh"
 }
 
-cmd_install() {
-    exec "${SRC_DIR}/install-monitor.sh"
-}
-
-cmd_uninstall() {
-    exec "${SRC_DIR}/uninstall-monitor.sh"
+cmd_doctor() {
+    local doctor_script="${CLI_DIR}/doctor.sh"
+    
+    if [[ ! -f "$doctor_script" ]]; then
+        echo -e "${RED}Error: doctor script not found${NC}"
+        exit 1
+    fi
+    
+    # Pass through all arguments to the doctor script
+    exec "$doctor_script" "$@"
 }
 
 ################################################################################
@@ -318,14 +322,11 @@ main() {
     
     # Route to appropriate handler
     case "$command" in
+        doctor)
+            cmd_doctor "$@"
+            ;;
         start|mirror)
             cmd_start "$@"
-            ;;
-        install)
-            cmd_install "$@"
-            ;;
-        uninstall)
-            cmd_uninstall "$@"
             ;;
         list|devices)
             list_devices

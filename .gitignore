@@ -11,3 +11,16 @@ logs/
 
 # Temporary files
 *.tmp
+
+# Swift and Xcode build files
+.build/
+*.xcodeproj/
+build/
+DerivedData/
+.swiftpm/
+xcuserdata/
+*.xcworkspace/
+
+# App artifacts
+*.app/
+dist/
