@@ -1,22 +1,22 @@
-name: Release
+name: Build
 
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  build-and-release:
-    name: Build & Release
+  build:
+    name: Build & Test
     runs-on: macos-14
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Setup Xcode
         uses: maxim-lobanov/setup-xcode@v1
@@ -37,9 +37,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: src/app/.build
-          key: ${{ runner.os }}-swift-release-${{ hashFiles('src/app/Package.swift', 'src/app/AmirrorApp.swift') }}
+          key: ${{ runner.os }}-swift-${{ hashFiles('src/app/Package.swift', 'src/app/AmirrorApp.swift') }}
           restore-keys: |
-            ${{ runner.os }}-swift-release-
+            ${{ runner.os }}-swift-
 
       - name: Install dependencies
         run: brew install coreutils
@@ -52,14 +52,6 @@ jobs:
           chmod +x src/cli/doctor.sh
           chmod +x src/app/build.sh
           chmod +x test/test-runner.sh
-
-      - name: Generate version
-        id: version
-        run: |
-          # Use timestamp with seconds to ensure uniqueness
-          VERSION="1.0.$(date +%Y%m%d%H%M%S)"
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "📦 Version: $VERSION"
 
       - name: Build Swift app
         working-directory: src/app
@@ -90,62 +82,9 @@ jobs:
           echo "🧪 Running test suite..."
           ./test/test-runner.sh
 
-      - name: Create ZIP archive
-        working-directory: src/app
-        run: |
-          VERSION=${{ steps.version.outputs.version }}
-          zip -r "Amirror-${VERSION}-macos.zip" Amirror.app
-          echo "📦 Created Amirror-${VERSION}-macos.zip"
-
-      - name: Create DMG
-        working-directory: src/app
-        run: |
-          VERSION=${{ steps.version.outputs.version }}
-          DMG_DIR="dmg_temp"
-          mkdir -p "${DMG_DIR}"
-          cp -r Amirror.app "${DMG_DIR}/"
-          ln -s /Applications "${DMG_DIR}/Applications"
-          hdiutil create -volname "Amirror ${VERSION}" \
-            -srcfolder "${DMG_DIR}" \
-            -ov -format UDZO \
-            "Amirror-${VERSION}-macos.dmg"
-          rm -rf "${DMG_DIR}"
-          echo "💿 Created Amirror-${VERSION}-macos.dmg"
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
         with:
-          tag_name: v${{ steps.version.outputs.version }}
-          name: Amirror v${{ steps.version.outputs.version }}
-          body: |
-            ## Amirror v${{ steps.version.outputs.version }}
-            
-            🪞 Professional Android screen mirroring for macOS.
-            
-            ### Installation
-            
-            **Option 1: DMG (Recommended)**
-            1. Download `Amirror-${{ steps.version.outputs.version }}-macos.dmg`
-            2. Open the DMG file
-            3. Drag Amirror to Applications folder
-            4. Open from Applications
-            
-            **Option 2: ZIP**
-            1. Download `Amirror-${{ steps.version.outputs.version }}-macos.zip`
-            2. Extract and move `Amirror.app` to Applications
-            
-            ### Requirements
-            - macOS 13.0 (Ventura) or later
-            - Install dependencies: `brew install scrcpy coreutils`
-            
-            ### CLI Usage
-            ```bash
-            ./amirror doctor   # Check system
-            ./amirror start    # Start mirroring
-            ./amirror list     # List devices
-            ```
-          draft: false
-          prerelease: false
-          files: |
-            src/app/Amirror-${{ steps.version.outputs.version }}-macos.zip
-            src/app/Amirror-${{ steps.version.outputs.version }}-macos.dmg
+          name: Amirror-${{ github.sha }}
+          path: src/app/Amirror.app
+          retention-days: 30
