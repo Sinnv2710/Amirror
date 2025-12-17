@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: write
+
 jobs:
   build-and-release:
     name: Build & Release
@@ -53,7 +56,8 @@ jobs:
       - name: Generate version
         id: version
         run: |
-          VERSION="1.0.$(date +%Y%m%d)-$(git rev-parse --short HEAD)"
+          # Use timestamp with seconds to ensure uniqueness
+          VERSION="1.0.$(date +%Y%m%d%H%M%S)"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "📦 Version: $VERSION"
 
@@ -109,7 +113,7 @@ jobs:
           echo "💿 Created Amirror-${VERSION}-macos.dmg"
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.version.outputs.version }}
           name: Amirror v${{ steps.version.outputs.version }}
@@ -145,5 +149,3 @@ jobs:
           files: |
             src/app/Amirror-${{ steps.version.outputs.version }}-macos.zip
             src/app/Amirror-${{ steps.version.outputs.version }}-macos.dmg
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
