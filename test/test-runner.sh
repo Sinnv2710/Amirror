@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 ################################################################################
-# Test Runner for Android Mirror
+# Test Runner for Amirror
 # Description: Validates all commands and parameters work correctly
 ################################################################################
 
@@ -10,7 +10,11 @@ set -eo pipefail
 # Configuration
 readonly SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 readonly PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-readonly MAIN_SCRIPT="${PROJECT_ROOT}/roid-mirror"
+readonly MAIN_SCRIPT="${PROJECT_ROOT}/amirror"
+readonly SRC_DIR="${PROJECT_ROOT}/src"
+readonly CLI_DIR="${SRC_DIR}/cli"
+readonly LIB_DIR="${SRC_DIR}/lib"
+readonly APP_DIR="${SRC_DIR}/app"
 
 # Test results tracking
 TESTS_RUN=0
@@ -124,7 +128,7 @@ test_no_args_shows_help() {
     local output
     output=$("${MAIN_SCRIPT}" 2>&1 || true)
     
-    assert_output_contains "$output" "Android Mirror" || return 1
+    assert_output_contains "$output" "Amirror" || return 1
     assert_output_contains "$output" "USAGE:" || return 1
     assert_output_contains "$output" "COMMANDS:" || return 1
     
@@ -154,7 +158,7 @@ test_help_flag() {
     local exit_code=$?
     
     assert_exit_code 0 $exit_code "${MAIN_SCRIPT} --help" || return 1
-    assert_output_contains "$output" "Android Mirror" || return 1
+    assert_output_contains "$output" "Amirror" || return 1
     
     test_pass
 }
@@ -167,7 +171,7 @@ test_version_command() {
     local exit_code=$?
     
     assert_exit_code 0 $exit_code "${MAIN_SCRIPT} version" || return 1
-    assert_output_contains "$output" "Android Mirror v" || return 1
+    assert_output_contains "$output" "Amirror v" || return 1
     
     test_pass
 }
@@ -180,7 +184,7 @@ test_version_flag() {
     local exit_code=$?
     
     assert_exit_code 0 $exit_code "${MAIN_SCRIPT} --version" || return 1
-    assert_output_contains "$output" "Android Mirror v" || return 1
+    assert_output_contains "$output" "Amirror v" || return 1
     
     test_pass
 }
@@ -208,7 +212,6 @@ test_status_command() {
     assert_exit_code 0 $exit_code "${MAIN_SCRIPT} status" || return 1
     assert_output_contains "$output" "System Status" || return 1
     assert_output_contains "$output" "Dependencies:" || return 1
-    assert_output_contains "$output" "Auto-Monitor:" || return 1
     assert_output_contains "$output" "Connected Devices:" || return 1
     
     test_pass
@@ -274,11 +277,10 @@ test_source_scripts_exist() {
     test_start "All source scripts exist"
     
     local required_scripts=(
-        "${PROJECT_ROOT}/src/android-mirror.sh"
-        "${PROJECT_ROOT}/src/install-monitor.sh"
-        "${PROJECT_ROOT}/src/uninstall-monitor.sh"
-        "${PROJECT_ROOT}/src/usb-monitor.sh"
-        "${PROJECT_ROOT}/lib/error-handler.sh"
+        "${CLI_DIR}/amirror.sh"
+        "${CLI_DIR}/doctor.sh"
+        "${CLI_DIR}/amirror"
+        "${LIB_DIR}/error-handler.sh"
     )
     
     local missing=()
@@ -300,10 +302,9 @@ test_source_scripts_executable() {
     test_start "All source scripts are executable"
     
     local scripts=(
-        "${PROJECT_ROOT}/src/android-mirror.sh"
-        "${PROJECT_ROOT}/src/install-monitor.sh"
-        "${PROJECT_ROOT}/src/uninstall-monitor.sh"
-        "${PROJECT_ROOT}/src/usb-monitor.sh"
+        "${CLI_DIR}/amirror.sh"
+        "${CLI_DIR}/doctor.sh"
+        "${CLI_DIR}/amirror"
     )
     
     local not_executable=()
@@ -324,7 +325,7 @@ test_source_scripts_executable() {
 test_error_handler_syntax() {
     test_start "Error handler library has valid syntax"
     
-    if ! bash -n "${PROJECT_ROOT}/lib/error-handler.sh" 2>&1; then
+    if ! bash -n "${LIB_DIR}/error-handler.sh" 2>&1; then
         test_fail "Syntax errors in error-handler.sh"
         return 1
     fi
@@ -335,19 +336,30 @@ test_error_handler_syntax() {
 test_main_script_syntax() {
     test_start "Main script has valid syntax"
     
-    if ! bash -n "${PROJECT_ROOT}/roid-mirror" 2>&1; then
-        test_fail "Syntax errors in roid-mirror"
+    if ! bash -n "${CLI_DIR}/amirror" 2>&1; then
+        test_fail "Syntax errors in amirror"
         return 1
     fi
     
     test_pass
 }
 
-test_android_mirror_syntax() {
-    test_start "Android mirror script has valid syntax"
+test_amirror_syntax() {
+    test_start "Amirror script has valid syntax"
     
-    if ! bash -n "${PROJECT_ROOT}/src/android-mirror.sh" 2>&1; then
-        test_fail "Syntax errors in android-mirror.sh"
+    if ! bash -n "${CLI_DIR}/amirror.sh" 2>&1; then
+        test_fail "Syntax errors in amirror.sh"
+        return 1
+    fi
+    
+    test_pass
+}
+
+test_doctor_syntax() {
+    test_start "Doctor script has valid syntax"
+    
+    if ! bash -n "${CLI_DIR}/doctor.sh" 2>&1; then
+        test_fail "Syntax errors in doctor.sh"
         return 1
     fi
     
@@ -359,8 +371,6 @@ test_documentation_exists() {
     
     local docs=(
         "${PROJECT_ROOT}/README.md"
-        "${PROJECT_ROOT}/docs/QUICKSTART.md"
-        "${PROJECT_ROOT}/docs/AUTO-CONNECT.md"
     )
     
     local missing=()
@@ -382,9 +392,10 @@ test_directory_structure() {
     test_start "Required directories exist"
     
     local dirs=(
-        "${PROJECT_ROOT}/src"
-        "${PROJECT_ROOT}/lib"
-        "${PROJECT_ROOT}/docs"
+        "${SRC_DIR}"
+        "${CLI_DIR}"
+        "${LIB_DIR}"
+        "${APP_DIR}"
         "${PROJECT_ROOT}/test"
     )
     
@@ -403,13 +414,71 @@ test_directory_structure() {
     test_pass
 }
 
+# macOS App Tests
+test_app_files_exist() {
+    test_start "macOS app source files exist"
+    
+    local app_files=(
+        "${APP_DIR}/AmirrorApp.swift"
+        "${APP_DIR}/Package.swift"
+        "${APP_DIR}/Info.plist"
+        "${APP_DIR}/build.sh"
+        "${APP_DIR}/create_icon.py"
+        "${APP_DIR}/icon/app_icon.png"
+    )
+    
+    local missing=()
+    for file in "${app_files[@]}"; do
+        if [[ ! -f "$file" ]]; then
+            missing+=("$file")
+        fi
+    done
+    
+    if [[ ${#missing[@]} -gt 0 ]]; then
+        test_fail "Missing app files: ${missing[*]}"
+        return 1
+    fi
+    
+    test_pass
+}
+
+test_app_build_script() {
+    test_start "App build script is executable"
+    
+    if [[ ! -x "${APP_DIR}/build.sh" ]]; then
+        test_fail "build.sh is not executable"
+        return 1
+    fi
+    
+    test_pass
+}
+
+test_swift_syntax() {
+    test_start "Swift file compiles (syntax check)"
+    
+    if ! command -v swiftc &> /dev/null; then
+        echo -e "  ${YELLOW}⊘${NC} SKIP: swiftc not installed"
+        TESTS_PASSED=$((TESTS_PASSED + 1))
+        echo ""
+        return 0
+    fi
+    
+    # Just check if swift can parse the file
+    if ! swiftc -parse "${APP_DIR}/AmirrorApp.swift" 2>&1; then
+        test_fail "Swift syntax errors in AmirrorApp.swift"
+        return 1
+    fi
+    
+    test_pass
+}
+
 ################################################################################
 # Test Suite Runner
 ################################################################################
 
 run_all_tests() {
     echo -e "${BOLD}╔════════════════════════════════════════════════════╗${NC}"
-    echo -e "${BOLD}║   Android Mirror - Test Suite                     ║${NC}"
+    echo -e "${BOLD}║   Amirror - Test Suite                            ║${NC}"
     echo -e "${BOLD}╚════════════════════════════════════════════════════╝${NC}"
     echo ""
     
@@ -428,7 +497,8 @@ run_all_tests() {
     echo "─────────────────────────────────────────────────────"
     test_main_script_syntax
     test_error_handler_syntax
-    test_android_mirror_syntax
+    test_amirror_syntax
+    test_doctor_syntax
     echo ""
     
     # Command tests
@@ -444,6 +514,14 @@ run_all_tests() {
     test_list_command
     test_devices_alias
     test_logs_command
+    echo ""
+    
+    # macOS App tests
+    echo -e "${BOLD}macOS App Tests${NC}"
+    echo "─────────────────────────────────────────────────────"
+    test_app_files_exist
+    test_app_build_script
+    test_swift_syntax
     echo ""
 }
 

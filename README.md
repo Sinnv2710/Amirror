@@ -1,11 +1,10 @@
-# roid-mirror
+# Amirror
 
-🪞 Professional Android screen mirroring for macOS with auto-USB detection, friendly error messages, and the patience of a saint. Because your phone screen is too small and your neck deserves better.
+🪞 Professional Android screen mirroring for macOS with friendly error messages and comprehensive features. Because your phone screen is too small and your neck deserves better.
 
 ## Features
 
-- 📱 Single CLI for all operations (`./roid-mirror start`, `./roid-mirror install`, etc.)
-- 🔌 Auto-detects USB devices with macOS dialog prompts
+- 📱 Single CLI for all operations (`./amirror start`, `./amirror doctor`, etc.)
 - 🛡️ Comprehensive error handling with helpful suggestions
 - 📊 Multi-level logging (DEBUG, INFO, WARN, ERROR)
 - ⚡ Built on scrcpy - the fastest Android mirroring tool
@@ -14,17 +13,17 @@
 ## Quick Start
 
 ```bash
-# Install dependencies
-brew install scrcpy
+# 1. Check your system (recommended first step)
+./amirror doctor
 
-# Run the mirror
-./roid-mirror start
+# 2. Install missing dependencies (if needed)
+./amirror doctor --fix
 
-# Enable auto-detection when USB plugged in
-./roid-mirror install
+# 3. Run the mirror
+./amirror start
 
 # Check status
-./roid-mirror status
+./amirror status
 ```
 
 ## Requirements
@@ -32,28 +31,55 @@ brew install scrcpy
 - macOS 10.15+ (Bash 3.2+ compatible)
 - Android device with USB debugging enabled
 - [scrcpy](https://github.com/Genymobile/scrcpy) (includes adb)
+- GNU coreutils (`timeout` command - install via: `brew install coreutils`)
+
+## System Setup
+
+### Check Your System (Recommended)
+
+Before running Amirror, check that everything is set up correctly:
+
+```bash
+./amirror doctor
+```
+
+This will verify:
+
+- ✅ Homebrew installation
+- ✅ Required tools (scrcpy, adb, coreutils)
+- ✅ System configuration
+- ✅ File permissions
+- ✅ Log directory setup
+- ✅ Connected Android devices
+
+### Auto-Fix Missing Dependencies
+
+If something is missing, let the doctor fix it:
+
+```bash
+./amirror doctor --fix        # Install missing dependencies
+./amirror doctor --install-all # Install/update all dependencies
+```
 
 ## Commands
 
 ```bash
-./roid-mirror start              # Start mirroring
-./roid-mirror start -s <serial>  # Mirror specific device
-./roid-mirror list               # Show connected devices
-./roid-mirror install            # Install auto-detection
-./roid-mirror status             # Check system status
-./roid-mirror logs               # View recent logs
-./roid-mirror help               # Show all commands
+./amirror doctor             # Check system readiness
+./amirror doctor --fix       # Install missing dependencies
+./amirror start              # Start mirroring
+./amirror start -s <serial>  # Mirror specific device
+./amirror list               # Show connected devices
+./amirror status             # Check system status
+./amirror logs               # View recent logs
+./amirror help               # Show all commands
 ```
 
 ## Documentation
 
 - 📖 [User Guide](docs/USER-GUIDE.md) - Complete features and usage
 - 🚀 [Quick Start](docs/QUICKSTART.md) - Get started in 2 minutes
-- 🔌 [Auto-Connect](docs/AUTO-CONNECT.md) - USB auto-detection setup
 - 🛠️ [Development](docs/DEVELOPMENT.md) - Architecture and contributing
 - 🧪 [Testing](test/README.md) - Running the test suite
-
-## Testing
 
 ```bash
 ./test/test-runner.sh
@@ -76,6 +102,6 @@ MIT License - use freely for personal or commercial projects.
 
 ## Support
 
-- 📝 [Issues](https://github.com/roid-mirror/roid-mirror/issues) - Bug reports and feature requests
+- 📝 [Issues](https://github.com/amirror/amirror/issues) - Bug reports and feature requests
 - 📚 [scrcpy docs](https://github.com/Genymobile/scrcpy) - Underlying mirroring tool
 - 💬 Check `logs/` directory for detailed error information

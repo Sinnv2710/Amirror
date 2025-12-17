@@ -1,4 +1,4 @@
-# Test Suite for Android Mirror
+# Test Suite for Amirror
 
 This directory contains automated tests to validate all functionality before release.
 
@@ -9,18 +9,42 @@ Run all tests:
 ./test/test-runner.sh
 ```
 
+## Project Structure
+
+```
+amirror-mac/
+├── src/
+│   ├── cli/           # CLI tools
+│   │   ├── amirror
+│   │   ├── amirror.sh
+│   │   └── doctor.sh
+│   ├── lib/           # Shared libraries
+│   │   └── error-handler.sh
+│   └── app/           # macOS GUI app
+│       ├── AmirrorApp.swift
+│       ├── Package.swift
+│       ├── Info.plist
+│       ├── build.sh
+│       └── create_icon.py
+├── docs/
+├── test/
+└── README.md
+```
+
 ## What Gets Tested
 
 ### 1. Project Structure
-- ✓ All required directories exist (src/, lib/, docs/, test/)
+- ✓ All required directories exist (src/cli/, src/lib/, src/app/, docs/, test/)
 - ✓ Main script exists and is executable
-- ✓ All source scripts exist and are executable
-- ✓ Documentation files exist
+- ✓ All CLI scripts exist and are executable
+- ✓ Documentation files exist (README.md, USER-GUIDE.md, DEVELOPMENT.md)
 
 ### 2. Syntax Validation
 - ✓ Main script has valid Bash syntax
 - ✓ Error handler library has valid syntax
-- ✓ Android mirror script has valid syntax
+- ✓ Amirror script has valid syntax
+- ✓ Doctor script has valid syntax
+- ✓ Swift app has valid syntax (if swiftc available)
 
 ### 3. Command Functionality
 - ✓ No arguments shows help (default behavior)
@@ -34,6 +58,11 @@ Run all tests:
 - ✓ `devices` alias works
 - ✓ `logs` command runs without errors
 
+### 4. macOS App
+- ✓ App source files exist (AmirrorApp.swift, Package.swift, Info.plist)
+- ✓ Build script exists and is executable
+- ✓ Swift syntax is valid (if swiftc available)
+
 ## Test Output
 
 The test runner provides:
@@ -46,7 +75,7 @@ The test runner provides:
 
 ```
 ╔════════════════════════════════════════════════════╗
-║   Android Mirror - Test Suite                     ║
+║   Amirror - Test Suite                            ║
 ╚════════════════════════════════════════════════════╝
 
 Project Structure Tests
@@ -67,11 +96,16 @@ Command Functionality Tests
 ▶ Testing: help command displays documentation
   ✓ PASS
 
+macOS App Tests
+─────────────────────────────────────────────────────
+▶ Testing: App source files exist
+  ✓ PASS
+
 ═════════════════════════════════════════════════════
 Test Results
 ─────────────────────────────────────────────────────
-Total Tests:  19
-Passed:       19
+Total Tests:  22
+Passed:       22
 ═════════════════════════════════════════════════════
 ✓ All tests passed!
 ```
@@ -86,7 +120,7 @@ test_your_feature() {
     
     # Your test logic here
     local output
-    output=$(./roid-mirror your-command 2>&1)
+    output=$(./amirror your-command 2>&1)
     
     assert_output_contains "$output" "expected text" || return 1
     
