@@ -1,6 +1,6 @@
 #!/bin/bash
 # Amirror Installer
-# Usage: curl -fsSL https://raw.githubusercontent.com/praparn/amirror-mac/main/install.sh | bash
+# Usage: curl -fsSL https://raw.githubusercontent.com/Sinnv2710/Amirror/main/install.sh | bash
 
 set -e
 
@@ -64,7 +64,7 @@ if [ -d "$INSTALL_DIR" ]; then
     cd "$INSTALL_DIR"
     git pull --quiet
 else
-    git clone --depth 1 https://github.com/praparn/amirror-mac.git "$INSTALL_DIR"
+    git clone --depth 1 https://github.com/Sinnv2710/Amirror.git "$INSTALL_DIR"
     cd "$INSTALL_DIR"
 fi
 echo "✅ Downloaded to $INSTALL_DIR"
