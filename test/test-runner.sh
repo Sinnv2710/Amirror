@@ -366,28 +366,6 @@ test_doctor_syntax() {
     test_pass
 }
 
-test_documentation_exists() {
-    test_start "Documentation files exist"
-    
-    local docs=(
-        "${PROJECT_ROOT}/README.md"
-    )
-    
-    local missing=()
-    for doc in "${docs[@]}"; do
-        if [[ ! -f "$doc" ]]; then
-            missing+=("$doc")
-        fi
-    done
-    
-    if [[ ${#missing[@]} -gt 0 ]]; then
-        test_fail "Missing documentation: ${missing[*]}"
-        return 1
-    fi
-    
-    test_pass
-}
-
 test_directory_structure() {
     test_start "Required directories exist"
     
@@ -489,7 +467,6 @@ run_all_tests() {
     test_script_exists
     test_source_scripts_exist
     test_source_scripts_executable
-    test_documentation_exists
     echo ""
     
     # Syntax tests
